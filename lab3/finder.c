@@ -17,9 +17,20 @@
 #define READ_END 0
 #define WRITE_END 1
 
+/*
+ * main
+ *
+ * Description	:	Function that will fork four child processes
+ * @argc		:	Supplied by command line, should be 4
+ * @argv 		:	Supplied by command line, should be formatted like DIR STR NUM_FILES
+ *
+ * $int 		:	Return integer specifying program exit status
+ */
 int main(int argc, char *argv[])
 {
+	/* Declare status of pid */
 	int status;
+	/* Declare pid's to track forked child processes */
 	pid_t pid_1, pid_2, pid_3, pid_4;
 
 	if (argc != 4) {
@@ -27,15 +38,16 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 	
-	/* ports for the pipes */
+	/* Declare ports for the pipes */
 	int fd_a[2], fd_b[2], fd_c[2];
-	/* pipe between first and second child with fd_a as the ports */
+	/* Establish pipe between first and second child with fd_a as the ports */
 	pipe(fd_a);
-	/* pipe between second and third child with fd_b as the ports */
+	/* Establish pipe between second and third child with fd_b as the ports */
 	pipe(fd_b);
-	/* pipe between third and fourth child with fd_c as the ports */
+	/* Establish pipe between third and fourth child with fd_c as the ports */
 	pipe(fd_c);
 
+	/* Fork the first child process with pid == 0 which will execute a find command */
 	pid_1 = fork();
 	if (pid_1 == 0) {
 		/* First Child */
@@ -52,9 +64,11 @@ int main(int argc, char *argv[])
 		close(fd_c[READ_END]);
 		close(fd_c[WRITE_END]);
 
-
+		/* Declare a char array of size BSIZE that will store the command string */
 		char cmdbuf[BSIZE];
+		/* Set the first BSIZE bytes of the char array cmdbuf to 0 (i.e. alloc memory) */
  		bzero(cmdbuf, BSIZE);
+ 		/* Format the command string which finds in the directory argv[1] any .c or .h file */
  		sprintf(cmdbuf, "%s %s -name \'*\'.[ch]", FIND_EXEC, argv[1]);
 		
 		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
@@ -67,6 +81,7 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
+	/* Fork the second child process with pid == 0 which will execute a grep command */
 	pid_2 = fork();
 	if (pid_2 == 0) {
 		/* Second Child */		
@@ -87,18 +102,20 @@ int main(int argc, char *argv[])
 
 		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
+ 		/* Format the command string which counts the number of occurrences of argv[2] in the files listed from the pipe */
  		sprintf(cmdbuf, "%s %s -c %s ", XARGS_EXEC, GREP_EXEC, argv[2]);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 
 		if ( execv(BASH_EXEC, arr) < 0) {
- 			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
+ 			fprintf(stderr, "\nError execing grep. ERROR#%d\n", errno);
  			return EXIT_FAILURE;
 		}
 
 		exit(0);
 	}
 
+	/* Fork the third child process with pid == 0 which will execute a sort command */
 	pid_3 = fork();
 	if (pid_3 == 0) {
 		/* Third Child */	
@@ -119,18 +136,20 @@ int main(int argc, char *argv[])
 
  		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
+ 		/* Format the command string which sorts the occurrences numerically then reverses them from the pipe */
  		sprintf(cmdbuf, "%s -t : +1.0 -2.0 --numeric --reverse ", SORT_EXEC);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 
  		if ( execv(BASH_EXEC, arr) < 0) {
- 			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
+ 			fprintf(stderr, "\nError execing sort. ERROR#%d\n", errno);
  			return EXIT_FAILURE;
 		}
 
 		exit(0);
 	}
 
+	/* Fork the fourth child process with pid == 0 which will execute a head command */
 	pid_4 = fork();
 	if (pid_4 == 0) {
 		/* Fourth Child */
@@ -149,12 +168,13 @@ int main(int argc, char *argv[])
 
  		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
+ 		/* Format the command string which gets the first argv[3] lines of output from the pipe */
  		sprintf(cmdbuf, "%s --lines=%s ", HEAD_EXEC, argv[3]);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 
 		if ( execv(BASH_EXEC, arr) < 0) {
- 			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
+ 			fprintf(stderr, "\nError execing head. ERROR#%d\n", errno);
  			return EXIT_FAILURE;
 		}
 
