@@ -39,24 +39,25 @@ int main(int argc, char *argv[])
 	pid_1 = fork();
 	if (pid_1 == 0) {
 		/* First Child */
- 		printf("FIRST CHILD\n");
+
+		/* Open output end of the pipe between first and second child */
+		dup2(fd_a[WRITE_END], STDOUT_FILENO);//stdout == 1
+		/* Close unused half of pipe */
+		close(fd_a[READ_END]);
+
+		/* Close unused pipe between second and third child */
+		close(fd_b[READ_END]);
+		close(fd_b[WRITE_END]);
+		/* Close unused pipe between third and fourth child */
+		close(fd_c[READ_END]);
+		close(fd_c[WRITE_END]);
+
+
 		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
  		sprintf(cmdbuf, "%s %s -name \'*\'.[ch]", FIND_EXEC, argv[1]);
 		
 		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
-
-		// for output
-		dup2(fd_a[WRITE_END], STDOUT_FILENO);//stdout == 1
-		// close unused unput half of pipe
-		close(fd_a[READ_END]);
-
-		/* close unused pipe between second and third child */
-		close(fd_b[READ_END]);
-		close(fd_b[WRITE_END]);
-		/* close unused pipe between third and fourth child */
-		close(fd_c[READ_END]);
-		close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -68,27 +69,27 @@ int main(int argc, char *argv[])
 
 	pid_2 = fork();
 	if (pid_2 == 0) {
-		/* Second Child */
- 		printf("SECOND CHILD\n");
+		/* Second Child */		
+
+		/* Open input end of the pipe between first and second child */
+		dup2(fd_a[READ_END], STDIN_FILENO);//stdin == 0
+		/* Close unused half of pipe */
+		close(fd_a[WRITE_END]);
+
+		/* Open output end of the pipe between second and third child */
+		dup2(fd_b[WRITE_END], STDOUT_FILENO);
+		/* Close unused half of pipe */
+		close(fd_b[READ_END]);
+
+		/* Close unused pipe between third and fourth child */
+		close(fd_c[READ_END]);
+		close(fd_c[WRITE_END]);
+
 		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
  		sprintf(cmdbuf, "%s %s -c %s ", XARGS_EXEC, GREP_EXEC, argv[2]);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
-		
-		// for input
-		dup2(fd_a[READ_END], STDIN_FILENO);//stdin == 0
-		// close unused half of pipe
-		close(fd_a[WRITE_END]);
-
-		// for output
-		dup2(fd_b[WRITE_END], STDOUT_FILENO);
-		// close unused half of pipe
-		close(fd_b[READ_END]);
-
-		/* close unused pipe between third and fourth child */
-		close(fd_c[READ_END]);
-		close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -100,27 +101,27 @@ int main(int argc, char *argv[])
 
 	pid_3 = fork();
 	if (pid_3 == 0) {
-		/* Third Child */
- 		printf("THIRD CHILD\n");		
+		/* Third Child */	
+
+		/* Open input end of the pipe between second and third child */
+		dup2(fd_b[READ_END], STDIN_FILENO);
+		/* Close unused half of pipe */
+		close(fd_b[WRITE_END]);
+
+		/* Open output end of the pipe between third and fourth child */
+		dup2(fd_c[WRITE_END], STDOUT_FILENO);
+		/* Close unused half of pipe */
+		close(fd_c[READ_END]);
+
+		/* Close unused pipe between first and second child */
+		close(fd_a[READ_END]);
+		close(fd_a[WRITE_END]);
+
  		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
  		sprintf(cmdbuf, "%s -t : +1.0 -2.0 --numeric --reverse ", SORT_EXEC);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
-
-		// for input
-		dup2(fd_b[READ_END], STDIN_FILENO);//stdin == 0
-		// close unused half of pipe
-		close(fd_b[WRITE_END]);
-
-		// for output
-		dup2(fd_c[WRITE_END], STDOUT_FILENO);
-		// close unused half of pipe
-		close(fd_c[READ_END]);
-
-		/* close unused pipe between first and second child */
-		close(fd_a[READ_END]);
-		close(fd_a[WRITE_END]);
 
  		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -133,24 +134,24 @@ int main(int argc, char *argv[])
 	pid_4 = fork();
 	if (pid_4 == 0) {
 		/* Fourth Child */
- 		printf("FOURTH CHILD\n");
+
+		/* Open input end of the pipe between third and fourth child */
+		dup2(fd_c[READ_END], STDIN_FILENO);
+		/* Close unused half of pipe */
+		close(fd_c[WRITE_END]);
+
+		/* Close unused pipe between first and second child */
+		close(fd_a[READ_END]);
+		close(fd_a[WRITE_END]);
+		/* Close unused pipe between second and third child */
+		close(fd_b[READ_END]);
+		close(fd_b[WRITE_END]);
+
  		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
  		sprintf(cmdbuf, "%s --lines=%s ", HEAD_EXEC, argv[3]);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
-
-		// for input
-		dup2(fd_c[READ_END], STDIN_FILENO);//stdin == 0
-		// close unused half of pipe
-		close(fd_c[WRITE_END]);
-
-		/* close unused pipe between first and second child */
-		close(fd_a[READ_END]);
-		close(fd_a[WRITE_END]);
-		/* close unused pipe between second and third child */
-		close(fd_b[READ_END]);
-		close(fd_b[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -160,9 +161,7 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	//
-	// IMPORTANT: these pipes must be closed off here, the place where the parent process occurs
-	//
+	/* IMPORTANT: These pipes must be closed off here. This is the place where the parent process occurs */
 	close(fd_a[READ_END]);
 	close(fd_a[WRITE_END]);
 	close(fd_b[READ_END]);
