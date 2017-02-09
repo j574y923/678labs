@@ -105,8 +105,10 @@ int main(int argc, char *argv[])
  		/* Format the command string which counts the number of occurrences of argv[2] in the files listed from the pipe */
  		sprintf(cmdbuf, "%s %s -c %s ", XARGS_EXEC, GREP_EXEC, argv[2]);
 
+ 		/* Set up array of command strings used for execv */
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 
+ 		/* Execute command */
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing grep. ERROR#%d\n", errno);
  			return EXIT_FAILURE;
@@ -168,7 +170,7 @@ int main(int argc, char *argv[])
 
  		char cmdbuf[BSIZE];
  		bzero(cmdbuf, BSIZE);
- 		/* Format the command string which gets the first argv[3] lines of output from the pipe */
+ 		/* Format the command string which gets the first argv[3] lines of input from the pipe */
  		sprintf(cmdbuf, "%s --lines=%s ", HEAD_EXEC, argv[3]);
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
