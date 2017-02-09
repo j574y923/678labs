@@ -27,8 +27,14 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 	
-	int fd[2];
-	pipe(fd);
+	/* ports for the pipes */
+	int fd_a[2], fd_b[2], fd_c[2];
+	/* pipe between first and second child with fd_a as the ports */
+	pipe(fd_a);
+	/* pipe between second and third child with fd_b as the ports */
+	pipe(fd_b);
+	/* pipe between third and fourth child with fd_c as the ports */
+	pipe(fd_c);
 
 	pid_1 = fork();
 	if (pid_1 == 0) {
@@ -40,9 +46,17 @@ int main(int argc, char *argv[])
 		
 		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 
-		dup2(fd[1], STDOUT_FILENO);//stdout == 1
+		// for output
+		dup2(fd_a[WRITE_END], STDOUT_FILENO);//stdout == 1
 		// close unused unput half of pipe
-		close(fd[0]);
+		close(fd_a[READ_END]);
+
+		/* close unused pipe between second and third child */
+		close(fd_b[READ_END]);
+		close(fd_b[WRITE_END]);
+		/* close unused pipe between third and fourth child */
+		// close(fd_c[READ_END]);
+		// close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -62,9 +76,19 @@ int main(int argc, char *argv[])
 
  		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
 		
-		dup2(fd[0], STDIN_FILENO);//stdin == 0
+		// for input
+		dup2(fd_a[READ_END], STDIN_FILENO);//stdin == 0
 		// close unused half of pipe
-		close(fd[1]);
+		close(fd_a[WRITE_END]);
+
+		// for output
+		dup2(fd_b[WRITE_END], STDOUT_FILENO);
+		// close unused half of pipe
+		close(fd_b[READ_END]);
+
+		/* close unused pipe between third and fourth child */
+		// close(fd_c[READ_END]);
+		// close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -77,7 +101,32 @@ int main(int argc, char *argv[])
 	pid_3 = fork();
 	if (pid_3 == 0) {
 		/* Third Child */
- 		printf("THIRD CHILD\n");
+ 		printf("THIRD CHILD\n");		
+ 		char cmdbuf[BSIZE];
+ 		bzero(cmdbuf, BSIZE);
+ 		sprintf(cmdbuf, "%s -t : +1.0 -2.0 --numeric --reverse ", SORT_EXEC);
+
+ 		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
+
+		// for input
+		dup2(fd_b[READ_END], STDIN_FILENO);//stdin == 0
+		// close unused half of pipe
+		close(fd_b[WRITE_END]);
+
+		// for output
+		// dup2(fd_c[WRITE_END], STDOUT_FILENO);
+		// // close unused half of pipe
+		// close(fd_c[READ_END]);
+
+		/* close unused pipe between first and second child */
+		close(fd_a[READ_END]);
+		close(fd_a[WRITE_END]);
+
+ 		if ( execv(BASH_EXEC, arr) < 0) {
+ 			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
+ 			return EXIT_FAILURE;
+		}
+
 		exit(0);
 	}
 
@@ -88,9 +137,15 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-
-	close(fd[0]);
-	close(fd[1]);
+	//
+	// IMPORTANT: these pipes must be closed off here, the place where the parent process occurs
+	//
+	close(fd_a[READ_END]);
+	close(fd_a[WRITE_END]);
+	close(fd_b[READ_END]);
+	close(fd_b[WRITE_END]);
+	// close(fd_c[READ_END]);
+	// close(fd_c[WRITE_END]);
 
 	if ((waitpid(pid_1, &status, 0)) == -1) {
 		fprintf(stderr, "Process 1 encountered an error. ERROR%d", errno);
