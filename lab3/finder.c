@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
 		close(fd_b[READ_END]);
 		close(fd_b[WRITE_END]);
 		/* close unused pipe between third and fourth child */
-		// close(fd_c[READ_END]);
-		// close(fd_c[WRITE_END]);
+		close(fd_c[READ_END]);
+		close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -87,8 +87,8 @@ int main(int argc, char *argv[])
 		close(fd_b[READ_END]);
 
 		/* close unused pipe between third and fourth child */
-		// close(fd_c[READ_END]);
-		// close(fd_c[WRITE_END]);
+		close(fd_c[READ_END]);
+		close(fd_c[WRITE_END]);
 
 		if ( execv(BASH_EXEC, arr) < 0) {
  			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
@@ -114,9 +114,9 @@ int main(int argc, char *argv[])
 		close(fd_b[WRITE_END]);
 
 		// for output
-		// dup2(fd_c[WRITE_END], STDOUT_FILENO);
-		// // close unused half of pipe
-		// close(fd_c[READ_END]);
+		dup2(fd_c[WRITE_END], STDOUT_FILENO);
+		// close unused half of pipe
+		close(fd_c[READ_END]);
 
 		/* close unused pipe between first and second child */
 		close(fd_a[READ_END]);
@@ -134,6 +134,29 @@ int main(int argc, char *argv[])
 	if (pid_4 == 0) {
 		/* Fourth Child */
  		printf("FOURTH CHILD\n");
+ 		char cmdbuf[BSIZE];
+ 		bzero(cmdbuf, BSIZE);
+ 		sprintf(cmdbuf, "%s --lines=%s ", HEAD_EXEC, argv[3]);
+
+ 		char *const arr[] = {BASH_EXEC, "-c", cmdbuf, (char *) 0};
+
+		// for input
+		dup2(fd_c[READ_END], STDIN_FILENO);//stdin == 0
+		// close unused half of pipe
+		close(fd_c[WRITE_END]);
+
+		/* close unused pipe between first and second child */
+		close(fd_a[READ_END]);
+		close(fd_a[WRITE_END]);
+		/* close unused pipe between second and third child */
+		close(fd_b[READ_END]);
+		close(fd_b[WRITE_END]);
+
+		if ( execv(BASH_EXEC, arr) < 0) {
+ 			fprintf(stderr, "\nError execing find. ERROR#%d\n", errno);
+ 			return EXIT_FAILURE;
+		}
+
 		exit(0);
 	}
 
@@ -144,8 +167,8 @@ int main(int argc, char *argv[])
 	close(fd_a[WRITE_END]);
 	close(fd_b[READ_END]);
 	close(fd_b[WRITE_END]);
-	// close(fd_c[READ_END]);
-	// close(fd_c[WRITE_END]);
+	close(fd_c[READ_END]);
+	close(fd_c[WRITE_END]);
 
 	if ((waitpid(pid_1, &status, 0)) == -1) {
 		fprintf(stderr, "Process 1 encountered an error. ERROR%d", errno);
