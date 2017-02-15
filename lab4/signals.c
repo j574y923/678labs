@@ -23,10 +23,14 @@ void catch_int(int sig_num)
     printf("\nReally exit? [Y/n]: ");
     fflush(stdout);
 
+    got_response = 0;
     alarm(5);
 
     fgets(answer, sizeof(answer), stdin);
     if (answer[0] == 'n' || answer[0] == 'N') {
+
+      got_response = 1;
+
       printf("\nContinuing\n");
       fflush(stdout);
       /* 
@@ -52,9 +56,11 @@ void catch_tstp(int sig_num)
 
 void catch_alrm()
 {
-  printf("\nUser taking too long to respond. Exiting  . . .\n");
-  fflush(stdout);
-  exit(0);
+  if(got_response == 0){
+    printf("\nUser taking too long to respond. Exiting  . . .\n");
+    fflush(stdout);
+    exit(0);
+  }
 }
 
 int main(int argc, char* argv[])
