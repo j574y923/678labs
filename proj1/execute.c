@@ -13,6 +13,11 @@
 
 #include "quash.h"
 
+#include <limits.h>
+
+int fd[2];
+bool p_exists;
+
 // Remove this and all expansion calls to it
 /**
  * @brief Note calls to any function that requires implementation
@@ -28,12 +33,19 @@
 char* get_current_directory(bool* should_free) {
   // TODO: Get the current working directory. This will fix the prompt path.
   // HINT: This should be pretty simple
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
   // Change this to true if necessary
   *should_free = false;
 
-  return "get_current_directory()";
+  char cwd[1024];
+  char *cwd_ptr = malloc(1024);
+  if ((cwd_ptr = getcwd(cwd, sizeof(cwd))) != NULL) {}
+      // fprintf(stdout, "Current working dir: %s\n", cwd);
+  else
+      perror("getcwd() error");
+
+  return cwd_ptr;
 }
 
 // Returns the value of an environment variable env_var
@@ -42,12 +54,13 @@ const char* lookup_env(const char* env_var) {
   // to interpret variables from the command line and display the prompt
   // correctly
   // HINT: This should be pretty simple
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
   // TODO: Remove warning silencers
-  (void) env_var; // Silence unused variable warning
-
-  return "???";
+  // (void) env_var; // Silence unused variable warning
+  char *env_var_ptr = malloc(1024);
+  env_var_ptr = getenv(env_var); 
+  return env_var_ptr;
 }
 
 // Check the status of background jobs
@@ -93,13 +106,14 @@ void run_generic(GenericCommand cmd) {
   char** args = cmd.args;
 
   // TODO: Remove warning silencers
-  (void) exec; // Silence unused variable warning
-  (void) args; // Silence unused variable warning
+  // (void) exec; // Silence unused variable warning
+  // (void) args; // Silence unused variable warning
 
   // TODO: Implement run generic
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
-  perror("ERROR: Failed to execute program");
+  if(execvp(exec, args) < 0)
+    perror("ERROR: Failed to execute program");
 }
 
 // Print strings
@@ -109,10 +123,13 @@ void run_echo(EchoCommand cmd) {
   char** str = cmd.args;
 
   // TODO: Remove warning silencers
-  (void) str; // Silence unused variable warning
+  // (void) str; // Silence unused variable warning
 
   // TODO: Implement echo
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
+  for(; *str != NULL; ++str)
+    printf("%s ",*str);
+  printf("\n");
 
   // Flush the buffer before returning
   fflush(stdout);
@@ -125,12 +142,13 @@ void run_export(ExportCommand cmd) {
   const char* val = cmd.val;
 
   // TODO: Remove warning silencers
-  (void) env_var; // Silence unused variable warning
-  (void) val;     // Silence unused variable warning
+  // (void) env_var; // Silence unused variable warning
+  // (void) val;     // Silence unused variable warning
 
   // TODO: Implement export.
   // HINT: This should be quite simple.
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
+  setenv(env_var, val, 1);
 }
 
 // Changes the current working directory
@@ -144,12 +162,22 @@ void run_cd(CDCommand cmd) {
     return;
   }
 
-  // TODO: Change directory
+  // Change directory
+  char path_buf[PATH_MAX];
+  char *real_path_ptr = realpath(dir, path_buf);
+
+  chdir(real_path_ptr);
 
   // TODO: Update the PWD environment variable to be the new current working
   // directory and optionally update OLD_PWD environment variable to be the old
   // working directory.
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
+  // bool *idk;
+  // lookup_env("OLD_PWD") = lookup_env("PWD");
+  // lookup_env("PWD") = get_current_directory(idk);
+  bool *idk;
+  setenv("OLD_PWD", lookup_env("PWD"), 1);
+  setenv("PWD", get_current_directory(idk), 1);
 }
 
 // Sends a signal to all processes contained in a job
@@ -169,9 +197,12 @@ void run_kill(KillCommand cmd) {
 // Prints the current working directory to stdout
 void run_pwd() {
   // TODO: Print the current working directory
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
   // Flush the buffer before returning
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd)) != NULL)
+      printf("%s\n", cwd);
   fflush(stdout);
 }
 
@@ -296,18 +327,59 @@ void create_process(CommandHolder holder) {
                                                // is true
 
   // TODO: Remove warning silencers
-  (void) p_in;  // Silence unused variable warning
-  (void) p_out; // Silence unused variable warning
+  // (void) p_in;  // Silence unused variable warning
+  // (void) p_out; // Silence unused variable warning
   (void) r_in;  // Silence unused variable warning
   (void) r_out; // Silence unused variable warning
   (void) r_app; // Silence unused variable warning
 
   // TODO: Setup pipes, redirects, and new process
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
-  //parent_run_command(holder.cmd); // This should be done in the parent branch of
-                                  // a fork
-  //child_run_command(holder.cmd); // This should be done in the child branch of a fork
+  //????????????!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11!!!!!!!!!!!!!!1111111111111111111
+  //ONLY ONE OF THE FLAGS WILL BE TRUE AT ONE TIME, ONLY ONE CMD (AND ONE CMD TYPE) WILL BE HELD IN HOLDER, USE GLOBAL PIPE? 
+
+  if(p_out){
+    pipe(fd);
+    p_exists = true;
+
+    pid_t pid_1 = fork();
+    if(pid_1 == 0){
+      dup2(fd[1], STDOUT_FILENO);
+      close(fd[0]);
+      child_run_command(holder.cmd); // This should be done in the child branch of a fork
+      exit(EXIT_SUCCESS);
+    }
+  }
+  else if(p_in){
+    pid_t pid_2 = fork();
+    if(pid_2 == 0){
+      dup2(fd[0], STDIN_FILENO);
+      close(fd[1]);
+      child_run_command(holder.cmd); // This should be done in the child branch of a fork
+      exit(EXIT_SUCCESS);
+    }
+
+    if(p_exists){
+      close(fd[0]);
+      close(fd[1]);  
+      parent_run_command(holder.cmd); // This should be done in the parent branch of
+                                      // a fork
+      p_exists = false;
+    }
+  }
+  else{
+    child_run_command(holder.cmd);
+    parent_run_command(holder.cmd);
+  }
+
+  if(p_exists){
+    close(fd[0]);
+    close(fd[1]);  
+    parent_run_command(holder.cmd); // This should be done in the parent branch of
+                                    // a fork
+    // p_exists = false;
+  }
 }
 
 // Run a list of commands
