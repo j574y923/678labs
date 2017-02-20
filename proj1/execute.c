@@ -14,9 +14,11 @@
 #include "quash.h"
 
 #include <limits.h>
+#include <unistd.h>
+#include <fcntl.h>
 
-int fd[2];
-bool p_exists;
+// int fd[2];
+// bool p_exists;
 
 // Remove this and all expansion calls to it
 /**
@@ -45,7 +47,7 @@ char* get_current_directory(bool* should_free) {
   else
       perror("getcwd() error");
 
-  return cwd_ptr;
+  return getcwd(NULL, 1024);
 }
 
 // Returns the value of an environment variable env_var
@@ -58,9 +60,7 @@ const char* lookup_env(const char* env_var) {
 
   // TODO: Remove warning silencers
   // (void) env_var; // Silence unused variable warning
-  char *env_var_ptr = malloc(1024);
-  env_var_ptr = getenv(env_var); 
-  return env_var_ptr;
+  return getenv(env_var);
 }
 
 // Check the status of background jobs
@@ -166,7 +166,7 @@ void run_cd(CDCommand cmd) {
   char path_buf[PATH_MAX];
   char *real_path_ptr = realpath(dir, path_buf);
 
-  chdir(real_path_ptr);
+  chdir(dir);// chdir(real_path_ptr);
 
   // TODO: Update the PWD environment variable to be the new current working
   // directory and optionally update OLD_PWD environment variable to be the old
@@ -175,9 +175,9 @@ void run_cd(CDCommand cmd) {
   // bool *idk;
   // lookup_env("OLD_PWD") = lookup_env("PWD");
   // lookup_env("PWD") = get_current_directory(idk);
-  bool *idk;
-  setenv("OLD_PWD", lookup_env("PWD"), 1);
-  setenv("PWD", get_current_directory(idk), 1);
+  bool *idk = malloc(sizeof(bool));  
+  // setenv("OLD_PWD", lookup_env("PWD"), 1);
+  setenv("PWD", dir, 1);
 }
 
 // Sends a signal to all processes contained in a job
@@ -319,6 +319,7 @@ void parent_run_command(Command cmd) {
  */
 void create_process(CommandHolder holder) {
   // Read the flags field from the parser
+
   bool p_in  = holder.flags & PIPE_IN;
   bool p_out = holder.flags & PIPE_OUT;
   bool r_in  = holder.flags & REDIRECT_IN;
@@ -329,56 +330,46 @@ void create_process(CommandHolder holder) {
   // TODO: Remove warning silencers
   // (void) p_in;  // Silence unused variable warning
   // (void) p_out; // Silence unused variable warning
-  (void) r_in;  // Silence unused variable warning
-  (void) r_out; // Silence unused variable warning
-  (void) r_app; // Silence unused variable warning
+  // (void) r_in;  // Silence unused variable warning
+  // (void) r_out; // Silence unused variable warning
+  // (void) r_app; // Silence unused variable warning
 
   // TODO: Setup pipes, redirects, and new process
   // IMPLEMENT_ME();
+  int fd[2];
+  pipe(fd);
+  pid_t pid;
+  pid = fork();
+  if(pid == 0) {
 
-  //????????????!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11!!!!!!!!!!!!!!1111111111111111111
-  //ONLY ONE OF THE FLAGS WILL BE TRUE AT ONE TIME, ONLY ONE CMD (AND ONE CMD TYPE) WILL BE HELD IN HOLDER, USE GLOBAL PIPE? 
+    int fo;
+    if( r_in ) {
 
-  if(p_out){
-    pipe(fd);
-    p_exists = true;
+      fo = open(holder.redirect_in, O_RDONLY);
+      dup2(fo, STDIN_FILENO);
+      close(fo);
 
-    pid_t pid_1 = fork();
-    if(pid_1 == 0){
-      dup2(fd[1], STDOUT_FILENO);
-      close(fd[0]);
-      child_run_command(holder.cmd); // This should be done in the child branch of a fork
-      exit(EXIT_SUCCESS);
     }
-  }
-  else if(p_in){
-    pid_t pid_2 = fork();
-    if(pid_2 == 0){
-      dup2(fd[0], STDIN_FILENO);
-      close(fd[1]);
-      child_run_command(holder.cmd); // This should be done in the child branch of a fork
-      exit(EXIT_SUCCESS);
+    else if(r_out) {
+      if(r_app) {
+        fo = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777 );
+        dup2(fo, 1);
+        close(fo);
+      } 
+      else {
+        fo = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777 );
+        dup2(fo, 1);
+        close(fo);
+      }
     }
 
-    if(p_exists){
-      close(fd[0]);
-      close(fd[1]);  
-      parent_run_command(holder.cmd); // This should be done in the parent branch of
-                                      // a fork
-      p_exists = false;
-    }
-  }
-  else{
-    child_run_command(holder.cmd);
-    parent_run_command(holder.cmd);
-  }
+    child_run_command(holder.cmd); // This should be done in the child branch of a fork
 
-  if(p_exists){
-    close(fd[0]);
-    close(fd[1]);  
+    exit(EXIT_SUCCESS);
+  }
+  else {
     parent_run_command(holder.cmd); // This should be done in the parent branch of
                                     // a fork
-    // p_exists = false;
   }
 }
 
