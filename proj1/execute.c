@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-// int fd[2];
+int fd[2];
 // bool p_exists;
 
 // Remove this and all expansion calls to it
@@ -176,7 +176,7 @@ void run_cd(CDCommand cmd) {
   // lookup_env("OLD_PWD") = lookup_env("PWD");
   // lookup_env("PWD") = get_current_directory(idk);
   bool *idk = malloc(sizeof(bool));  
-  // setenv("OLD_PWD", lookup_env("PWD"), 1);
+  setenv("OLD_PWD", lookup_env("PWD"), 1);
   setenv("PWD", dir, 1);
 }
 
@@ -336,38 +336,54 @@ void create_process(CommandHolder holder) {
 
   // TODO: Setup pipes, redirects, and new process
   // IMPLEMENT_ME();
-  int fd[2];
+  // int fd[2];
+  int f_in;
   pipe(fd);
   pid_t pid;
   pid = fork();
   if(pid == 0) {
 
-    int fo;
-    if( r_in ) {
+    if(p_in){
+      dup2(fd[0], STDIN_FILENO);
+      close(fd[1]);
+    }
+    else if(p_out){
+      dup2(fd[1], STDOUT_FILENO);
+      close(fd[0]);
+    }
+    else{
+      close(fd[0]);
+      close(fd[1]);
+    }
 
-      fo = open(holder.redirect_in, O_RDONLY);
-      dup2(fo, STDIN_FILENO);
-      close(fo);
+    if(r_in){
+
+      f_in = open(holder.redirect_in, O_RDONLY);
+      dup2(f_in, STDIN_FILENO);
+      close(f_in);
 
     }
-    else if(r_out) {
+    else if(r_out){
       if(r_app) {
-        fo = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777 );
-        dup2(fo, 1);
-        close(fo);
+        f_in = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777 );
+        dup2(f_in, STDOUT_FILENO);
+        close(f_in);
       } 
-      else {
-        fo = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777 );
-        dup2(fo, 1);
-        close(fo);
+      else{
+        f_in = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777 );
+        dup2(f_in, STDIN_FILENO);
+        close(f_in);
       }
     }
 
     child_run_command(holder.cmd); // This should be done in the child branch of a fork
 
-    exit(EXIT_SUCCESS);
+    exit(0);
   }
   else {
+    close(fd[0]);
+    close(fd[1]);
+
     parent_run_command(holder.cmd); // This should be done in the parent branch of
                                     // a fork
   }
