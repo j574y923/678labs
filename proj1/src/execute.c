@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int f_temp;
+int fd_buf;
 // int fd[2];
 // bool p_exists;
 
@@ -345,41 +345,54 @@ void create_process(CommandHolder holder) {
   if(pid == 0) {
       
       if(p_in) {
-        dup2(f_temp, STDIN_FILENO);
+        // printf("%i fd p_in\n", fd[0]);
+        // printf("%i f_temp p_in\n", f_temp);
+        dup2(fd_buf, STDIN_FILENO);
+        close(fd[1]);
       }
       else if(p_out) {
         dup2(fd[1], STDOUT_FILENO);
         close(fd[0]);
       }
 
-      // if( r_in ) {
+      // if(r_in) {
       //   f_open = open(holder.redirect_in, O_RDONLY);
-      //   dup2( f_open, STDIN_FILENO );
-      //   close( f_open );
+      //   dup2(f_open, STDIN_FILENO );
+      //   close(f_open);
       // }
       // else if(r_out) {
       //   if(r_app) {
-      //     f_open = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777 );
+      //     f_open = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777);
       //     dup2(f_open, STDOUT_FILENO);
       //     close(f_open);
       //   } 
       //   else {
-      //     f_open = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777  );
+      //     f_open = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777);
       //     dup2(f_open, STDOUT_FILENO);
       //     close(f_open);
       //   }
       // }
       child_run_command(holder.cmd); // This should be done in the child branch of a fork
      
+        // close(fd[0]);
       exit(0);
   }
   else {
     waitpid(pid, NULL, 0);
     parent_run_command(holder.cmd); // This should be done in the parent branch of
                                     // a fork
-    close(fd[1]);
-    f_temp = fd[0];
-    
+
+    if(p_in)
+      close(fd[0]);
+    else if(p_out){
+      close(fd[1]);
+      fd_buf = fd[0];
+    }
+    else{ //if(!p_in && !p_out)
+      close(fd[0]);
+      close(fd[1]);
+    }
+    printf("FD_BUF%d\n",fd_buf);
   }
 }
 
