@@ -17,9 +17,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int fd_buf;
-// int fd[2];
-// bool p_exists;
+int *fd;
+int idx;
+int idx_pos;
 
 // Remove this and all expansion calls to it
 /**
@@ -39,14 +39,7 @@ char* get_current_directory(bool* should_free) {
   // IMPLEMENT_ME();
 
   // Change this to true if necessary
-  *should_free = false;
-
-  char cwd[1024];
-  char *cwd_ptr = malloc(1024);
-  if ((cwd_ptr = getcwd(cwd, sizeof(cwd))) != NULL) {}
-      // fprintf(stdout, "Current working dir: %s\n", cwd);
-  else
-      perror("getcwd() error");
+  *should_free = true;
 
   return getcwd(NULL, 1024);
 }
@@ -69,7 +62,7 @@ void check_jobs_bg_status() {
   // TODO: Check on the statuses of all processes belonging to all background
   // jobs. This function should remove jobs from the jobs queue once all
   // processes belonging to a job have completed.
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
   // TODO: Once jobs are implemented, uncomment and fill the following line
   // print_job_bg_complete(job_id, pid, cmd);
@@ -164,21 +157,17 @@ void run_cd(CDCommand cmd) {
   }
 
   // Change directory
-  char path_buf[PATH_MAX];
-  char *real_path_ptr = realpath(dir, path_buf);
-
-  chdir(dir);// chdir(real_path_ptr);
+  chdir(dir);
 
   // TODO: Update the PWD environment variable to be the new current working
   // directory and optionally update OLD_PWD environment variable to be the old
   // working directory.
   // IMPLEMENT_ME();
-  // bool *idk;
-  // lookup_env("OLD_PWD") = lookup_env("PWD");
-  // lookup_env("PWD") = get_current_directory(idk);
-  bool *idk = malloc(sizeof(bool));  
-  setenv("OLD_PWD", lookup_env("PWD"), 1);
-  setenv("PWD", dir, 1);
+  const char* old_dir = getenv("PWD");
+  if(setenv("PWD", dir, 1) < 0)
+    perror("ERROR: Failed to update PWD");
+  if(setenv("OLD_PWD", old_dir, 1) < 0)
+    perror("ERROR: Failed to update OLD_PWD"); 
 }
 
 // Sends a signal to all processes contained in a job
@@ -203,7 +192,7 @@ void run_pwd() {
   // Flush the buffer before returning
   char cwd[1024];
   if (getcwd(cwd, sizeof(cwd)) != NULL)
-      printf("%s\n", cwd);
+    printf("%s\n", cwd);
   fflush(stdout);
 }
 
@@ -337,62 +326,72 @@ void create_process(CommandHolder holder) {
 
   // TODO: Setup pipes, redirects, and new process
   // IMPLEMENT_ME();
-  int fd[2];
   int f_open;
-  pipe(fd);
   pid_t pid;
   pid = fork();
   if(pid == 0) {
       
-      if(p_in) {
-        // printf("%i fd p_in\n", fd[0]);
-        // printf("%i f_temp p_in\n", f_temp);
-        dup2(fd_buf, STDIN_FILENO);
-        close(fd[1]);
-      }
-      else if(p_out) {
-        dup2(fd[1], STDOUT_FILENO);
-        close(fd[0]);
-      }
+    /* Pipe code */
+    /* Get input from prev pipe, output to pipe */
+    if(p_in && p_out){
+      int pipe_end = idx_pos * 2;
+      dup2(fd[pipe_end - 2], STDIN_FILENO);//pipe_end - 2 is read end of prev pipe
+      close(fd[pipe_end - 1]);
 
-      // if(r_in) {
-      //   f_open = open(holder.redirect_in, O_RDONLY);
-      //   dup2(f_open, STDIN_FILENO );
-      //   close(f_open);
-      // }
-      // else if(r_out) {
-      //   if(r_app) {
-      //     f_open = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777);
-      //     dup2(f_open, STDOUT_FILENO);
-      //     close(f_open);
-      //   } 
-      //   else {
-      //     f_open = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777);
-      //     dup2(f_open, STDOUT_FILENO);
-      //     close(f_open);
-      //   }
-      // }
-      child_run_command(holder.cmd); // This should be done in the child branch of a fork
-     
-        // close(fd[0]);
-      exit(0);
+      dup2(fd[pipe_end + 1], STDOUT_FILENO);//pipe_end + 1 is write end of current pipe
+      close(fd[pipe_end]);
+
+      /* Close unused pipes */
+      for(int i = 0; i < pipe_end - 2; ++i)
+        close(fd[i]);
+      for(int i = pipe_end + 2; i < idx * 2; ++i)
+        close(fd[i]);
+    }
+    /* Get input from prev pipe */
+    else if(p_in) {
+      dup2(fd[idx * 2 - 2], STDIN_FILENO);
+      close(fd[idx * 2 - 1]);
+
+      /* Close unused pipes */
+      for(int i = 0; i < idx * 2 - 2; ++i)
+        close(fd[i]);
+    }
+    /* Output to pipe */
+    else if(p_out) {
+      dup2(fd[1], STDOUT_FILENO);
+      close(fd[0]);
+
+      /* Close unused pipes */
+      for(int i = 2; i < idx * 2; ++i)
+        close(fd[i]);
+    }
+
+    /* Redirection code */
+    if( r_in ) {
+      f_open = open(holder.redirect_in, O_RDONLY);
+      dup2( f_open, STDIN_FILENO );
+      close( f_open );
+    }
+    else if(r_out) {
+      if(r_app) {
+        f_open = open(holder.redirect_out, O_APPEND | O_WRONLY | O_CREAT, 0777);
+        dup2(f_open, STDOUT_FILENO);
+        close(f_open);
+      } 
+      else {
+        f_open = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777);
+        dup2(f_open, STDOUT_FILENO);
+        close(f_open);
+      }
+    }
+    child_run_command(holder.cmd); // This should be done in the child branch of a fork
+   
+    exit(0);
   }
   else {
-    waitpid(pid, NULL, 0);
+    push_back_pid_queue (&p_queue, pid);
     parent_run_command(holder.cmd); // This should be done in the parent branch of
                                     // a fork
-
-    if(p_in)
-      close(fd[0]);
-    else if(p_out){
-      close(fd[1]);
-      fd_buf = fd[0];
-    }
-    else{ //if(!p_in && !p_out)
-      close(fd[0]);
-      close(fd[1]);
-    }
-    printf("FD_BUF%d\n",fd_buf);
   }
 }
 
@@ -410,22 +409,68 @@ void run_script(CommandHolder* holders) {
   }
 
   CommandType type;
+  
+  /* Determine the number of commands and thus the number of pipes, idx will denote the pipe we are at */
+  idx = 0;
+  for (idx; (type = get_command_holder_type(holders[idx])) != EOC; ++idx){}
+
+  /* Number of pipes will be one less than the number of commands */
+  --idx;
+  if(idx < 1)
+    idx = 1;
+
+  /* Allocate ports for the pipes, need 2 ends for each pipe */
+  fd = (int *)malloc(idx * 2 * sizeof(int));
+  /* idx_pos is a global which will let create_process() keep track of the pipe we are at */
+  idx_pos = 0;
+
+  /* Create pipes */
+  for (int i = 0; i < idx; ++i) {
+    pipe(&fd[i*2]);
+  }
 
   // Run all commands in the `holder` array
-  for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
+  for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i){
     create_process(holders[i]);
+    ++idx_pos;
+  }
+
+  /* Close pipes */
+  for(int i = 0; i < idx; ++i){
+    close(fd[i*2]);
+    close(fd[i*2+1]);
+  }
+
+  /* Reuse the pipes' ports for future commands */
+  free(fd);
+  fd = NULL;
+
+  int status;
+  int fg_pid;
+  job_struct js;
 
   if (!(holders[0].flags & BACKGROUND)) {
     // Not a background Job
     // TODO: Wait for all processes under the job to complete
-    IMPLEMENT_ME();
+    // IMPLEMENT_ME();
+    while(is_empty_pid_queue (&p_queue) == false){
+      fg_pid = pop_back_pid_queue(&p_queue);  
+      waitpid(fg_pid, &status, 0);
+    }
   }
   else {
     // A background job.
     // TODO: Push the new job to the job queue
-    IMPLEMENT_ME();
+    // IMPLEMENT_ME();
+    
+  int bg_pid;
+  bg_pid = pop_front_pid_queue (&p_queue);
+    js.job_id = 0;//bg_jobs_count;
+    js.process_queue = &p_queue;
 
+    push_back_job_queue (&j_queue, js);
     // TODO: Once jobs are implemented, uncomment and fill the following line
     // print_job_bg_start(job_id, pid, cmd);
+    print_job_bg_start(js.job_id, bg_pid, "TODO");
   }
 }
