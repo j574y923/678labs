@@ -206,7 +206,7 @@ void run_jobs() {
   job_struct *js = as_array_job_queue(&j_queue, NULL);
 
   for(int i ; i < length; ++i){
-    printf("[%d]\t%d\t%s\n", (i + 1), js->job_id, js->cmd);
+    print_job(js->job_id, js->pid, js->cmd);
     ++js;
   }
   // Flush the buffer before returning
@@ -473,13 +473,14 @@ void run_script(CommandHolder* holders) {
 
 
     ++j_count;
-    js.job_id = pop_front_pid_queue (&p_queue);
+    js.job_id = j_count;
+    js.pid = pop_front_pid_queue (&p_queue);
     js.cmd = get_command_string();
     js.process_queue = &p_queue;
 
     push_back_job_queue (&j_queue, js);
     // TODO: Once jobs are implemented, uncomment and fill the following line
     // print_job_bg_start(job_id, pid, cmd);
-    print_job_bg_start(j_count, js.job_id, js.cmd);
+    print_job_bg_start(js.job_id, js.pid, js.cmd);
   }
 }
