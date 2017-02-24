@@ -65,6 +65,13 @@ void check_jobs_bg_status() {
   // processes belonging to a job have completed.
   // IMPLEMENT_ME();
 
+  // size_t j_length = length_job_queue(&j_queue);
+  // job_struct *js = as_array_job_queue(&j_queue, NULL);
+
+  // for(int i ; i < j_length; ++i){
+  //   for(int j =)
+  //   ++js;
+  // }
   // TODO: Once jobs are implemented, uncomment and fill the following line
   // print_job_bg_complete(job_id, pid, cmd);
 }
@@ -205,7 +212,7 @@ void run_jobs() {
   size_t length = length_job_queue(&j_queue);
   job_struct *js = as_array_job_queue(&j_queue, NULL);
 
-  for(int i ; i < length; ++i){
+  for(int i = 0 ; i < length; ++i){
     print_job(js->job_id, js->pid, js->cmd);
     ++js;
   }
