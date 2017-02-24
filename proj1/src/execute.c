@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 int *fd;
 int idx;
@@ -199,8 +200,15 @@ void run_pwd() {
 // Prints all background jobs currently in the job list to stdout
 void run_jobs() {
   // TODO: Print background jobs
-  IMPLEMENT_ME();
+  // IMPLEMENT_ME();
 
+  size_t length = length_job_queue(&j_queue);
+  job_struct *js = as_array_job_queue(&j_queue, NULL);
+
+  for(int i ; i < length; ++i){
+    printf("[%d]\t%d\t%s\n", (i + 1), js->job_id, js->cmd);
+    ++js;
+  }
   // Flush the buffer before returning
   fflush(stdout);
 }
@@ -462,15 +470,16 @@ void run_script(CommandHolder* holders) {
     // A background job.
     // TODO: Push the new job to the job queue
     // IMPLEMENT_ME();
-    
-  int bg_pid;
-  bg_pid = pop_front_pid_queue (&p_queue);
-    js.job_id = 0;//bg_jobs_count;
+
+
+    ++j_count;
+    js.job_id = pop_front_pid_queue (&p_queue);
+    js.cmd = get_command_string();
     js.process_queue = &p_queue;
 
     push_back_job_queue (&j_queue, js);
     // TODO: Once jobs are implemented, uncomment and fill the following line
     // print_job_bg_start(job_id, pid, cmd);
-    print_job_bg_start(js.job_id, bg_pid, "TODO");
+    print_job_bg_start(j_count, js.job_id, js.cmd);
   }
 }

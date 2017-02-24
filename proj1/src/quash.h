@@ -18,6 +18,7 @@
 
 pid_queue p_queue;
 job_queue j_queue;
+int j_count;
 
 /**
  * @brief Holds information about the state and environment Quash is running in

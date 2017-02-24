@@ -4,6 +4,7 @@
 
 typedef struct{
 	int job_id;
+	char *cmd;
 	pid_queue* process_queue;
 }job_struct;
 
