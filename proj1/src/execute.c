@@ -65,13 +65,6 @@ void check_jobs_bg_status() {
   // processes belonging to a job have completed.
   // IMPLEMENT_ME();
 
-  // size_t j_length = length_job_queue(&j_queue);
-  // job_struct *js = as_array_job_queue(&j_queue, NULL);
-
-  // for(int i ; i < j_length; ++i){
-  //   for(int j =)
-  //   ++js;
-  // }
   // TODO: Once jobs are implemented, uncomment and fill the following line
   // print_job_bg_complete(job_id, pid, cmd);
 }
@@ -208,14 +201,7 @@ void run_pwd() {
 void run_jobs() {
   // TODO: Print background jobs
   // IMPLEMENT_ME();
-
-  size_t length = length_job_queue(&j_queue);
-  job_struct *js = as_array_job_queue(&j_queue, NULL);
-
-  for(int i = 0 ; i < length; ++i){
-    print_job(js->job_id, js->pid, js->cmd);
-    ++js;
-  }
+  
   // Flush the buffer before returning
   fflush(stdout);
 }
@@ -394,7 +380,7 @@ void create_process(CommandHolder holder) {
         close(f_open);
       } 
       else {
-        f_open = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777);
+        f_open = open(holder.redirect_out, O_TRUNC | O_WRONLY | O_CREAT, 0777);
         dup2(f_open, STDOUT_FILENO);
         close(f_open);
       }
