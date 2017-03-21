@@ -16,8 +16,68 @@
 */
 typedef struct _job_t
 {
+  int job_number; 
+  int time; 
+  int running_time; 
+  int priority;
 
+  int core_number;
 } job_t;
+
+typedef struct _core_t
+{
+  int core_number;
+  int available;
+  job_t *job;
+} core_t;
+
+priqueue_t job_queue;
+priqueue_t core_queue;
+// int *core_array;
+// int num_cores;
+
+int fcfs  (const void* a, const void* b);
+int sjf   (const void* a, const void* b);
+int psjf  (const void* a, const void* b);
+int pri   (const void* a, const void* b);
+int ppri  (const void* a, const void* b);
+int rr    (const void* a, const void* b);
+
+int fcfs(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return a_2->time - b_2->time;
+}
+
+int sjf(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return a_2->running_time - b_2->running_time;
+}
+
+int psjf(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return a_2->running_time - b_2->running_time;
+}
+
+int pri(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return a_2->priority - b_2->priority;
+}
+
+int ppri(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return a_2->priority - b_2->priority;
+}
+
+int rr(const void* a, const void* b){
+  job_t* a_2 = (job_t*)a;
+  job_t* b_2 = (job_t*)b;
+  return -1;
+}
 
 
 /**
@@ -34,28 +94,66 @@ typedef struct _job_t
 */
 void scheduler_start_up(int cores, scheme_t scheme)
 {
-  priqueue_init(&queue, NULL);
-  priqueue_offer(&queue, 69);
-  priqueue_offer(&queue, 69);
-  priqueue_offer(&queue, 420);
-  priqueue_offer(&queue, 69);
-  priqueue_offer(&queue, 420);
-  priqueue_offer(&queue, 69);
-  priqueue_offer(&queue, 420);
-  priqueue_offer(&queue, 69);
-  printf("TEST%dSIZE\n",(queue.size));
-  printf("TEST%dAT2\n",priqueue_at(&queue,1));
-  printf("TEST%dREM_ALL69\n",priqueue_remove(&queue,69));
-  printf("TEST%dSIZE\n",(queue.size));
-  printf("TEST%dAT2\n",priqueue_at(&queue,0));
-  printf("TEST%dSIZE\n",(queue.size));
-  printf("TEST%dPOLL\n",priqueue_poll(&queue));
-  printf("TEST%dSIZE\n",(queue.size));
-  //printf("TEST%dDATA\n",(queue.head->data));
-  printf("TEST%dPOLL\n",priqueue_poll(&queue));
-  printf("TEST%dSIZE\n",(queue.size));
-  printf("TEST%dPOLL\n",priqueue_poll(&queue));
-  printf("TEST%dTEST",priqueue_poll(&queue));
+  // priqueue_init(&queue, NULL);
+  // priqueue_offer(&queue, 69);
+  // priqueue_offer(&queue, 69);
+  // priqueue_offer(&queue, 420);
+  // priqueue_offer(&queue, 69);
+  // priqueue_offer(&queue, 420);
+  // priqueue_offer(&queue, 69);
+  // priqueue_offer(&queue, 420);
+  // priqueue_offer(&queue, 69);
+  // printf("TEST%dSIZE\n",(queue.size));
+  // printf("TEST%dAT2\n",priqueue_at(&queue,1));
+  // printf("TEST%dREM_ALL69\n",priqueue_remove(&queue,69));
+  // printf("TEST%dSIZE\n",(queue.size));
+  // printf("TEST%dAT2\n",priqueue_at(&queue,0));
+  // printf("TEST%dSIZE\n",(queue.size));
+  // printf("TEST%dPOLL\n",priqueue_poll(&queue));
+  // printf("TEST%dSIZE\n",(queue.size));
+  // //printf("TEST%dDATA\n",(queue.head->data));
+  // printf("TEST%dPOLL\n",priqueue_poll(&queue));
+  // printf("TEST%dSIZE\n",(queue.size));
+  // printf("TEST%dPOLL\n",priqueue_poll(&queue));
+  // printf("TEST%dTEST",priqueue_poll(&queue));
+
+  // num_cores = cores;
+  // core_array = calloc(cores, sizeof(int));
+  // int *p = core_array;
+  // for(int i = 0; i < cores; ++i){
+  //   *(p + i) = 1;
+  // }
+
+  priqueue_init(&core_queue, NULL);
+  for(int i = 0; i < cores; ++i){
+    core_t *core = malloc(sizeof(core_t));
+    core->core_number = i;
+    core->available = 1;
+    core->job = NULL;
+    priqueue_offer(&core_queue, core);
+  }
+
+
+  switch(scheme){
+    case FCFS:
+      priqueue_init(&job_queue, fcfs);
+      break;
+    case SJF:
+      priqueue_init(&job_queue, sjf);
+      break;
+    case PSJF:
+      priqueue_init(&job_queue, psjf);
+      break;
+    case PRI:
+      priqueue_init(&job_queue, pri);
+      break;
+    case PPRI:
+      priqueue_init(&job_queue, ppri);
+      break;
+    case RR:
+      priqueue_init(&job_queue, rr);
+      break;
+  }
 }
 
 
@@ -81,6 +179,34 @@ void scheduler_start_up(int cores, scheme_t scheme)
  */
 int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
+  job_t* job = malloc(sizeof(job_t));
+  job->job_number = job_number;
+  job->time = time;
+  job->running_time = running_time;
+  job->priority = priority;
+  priqueue_offer(&job_queue, job);
+
+  //find the first available core index
+  // int *p = core_array;
+  // for(int i = 0; i < num_cores; ++i){
+  //   if(*(p + i) == 1){
+  //     *(p + i) = 0;
+  //     return i;
+  //   }
+  // }
+  node *i = core_queue.head;
+  while(i){
+    core_t *core = i->data;
+    if(core->available){
+      core->available = 0;
+      core->job = job;
+      job->core_number = core->core_number;
+      return core->core_number;
+    }
+    i = i->next;
+  }
+
+  job->core_number = -1;
 	return -1;
 }
 
@@ -101,6 +227,28 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
  */
 int scheduler_job_finished(int core_id, int job_number, int time)
 {
+  // int *p = core_array;
+  // *(p + core_id) = 1;
+  core_t *core = priqueue_at(&core_queue, core_id);
+  core->available = 1;
+
+  priqueue_remove(&job_queue, core->job);
+  core->job = NULL;
+
+  //find job that isn't running in job_queue
+  //put that job on core
+  node *i = job_queue.head;
+  while(i){
+    job_t *job = i->data;
+    if(job->core_number < 0){
+      core->available = 0;
+      core->job = job;
+      job->core_number = core->core_number;
+      return job->job_number;
+    }
+    i = i->next;
+  }
+  
 	return -1;
 }
 

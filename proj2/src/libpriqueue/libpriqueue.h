@@ -7,10 +7,12 @@
 /**
   Priqueue Data Structure
 */
+typedef int(*comparer)(const void *, const void *);
 typedef struct _priqueue_t
 {
   int size;
   struct node *head;
+  comparer cmp;
 } priqueue_t;
 
 typedef struct node
@@ -19,6 +21,7 @@ typedef struct node
   void *data;
 } node;
 
+typedef int (*func_ptr)(int, int);
 
 void   priqueue_init     (priqueue_t *q, int(*comparer)(const void *, const void *));
 
