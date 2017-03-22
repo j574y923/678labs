@@ -44,15 +44,27 @@ int priqueue_offer(priqueue_t *q, void *ptr)
     q->size++;
     return 0;
   }
+  else if(q->cmp && q->cmp(ptr, q->head->data) < 0){
+    node *temp = q->head;
+    q->head = elem;
+    elem->next = temp;
+    q->size++;
+    return 0;
+  }
 
   //keep track of idx
   int idx = 0;
   node *i = q->head;
-  while(i->next){
+  node *i_prev = i;
+  while(i){
+    if(q->cmp && q->cmp(ptr, i->data) < 0)
+      break;
+    i_prev = i;
     i = i->next;
     ++idx;
   }
-  i->next = elem;
+  i_prev->next = elem;
+  elem->next = i;
   q->size++;
 
 	return idx;

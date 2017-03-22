@@ -52,6 +52,8 @@ int fcfs(const void* a, const void* b){
 int sjf(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
+  if(b_2->core_number > 0)//running so let it be
+    return 1;
   return a_2->running_time - b_2->running_time;
 }
 
@@ -64,6 +66,8 @@ int psjf(const void* a, const void* b){
 int pri(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
+  if(b_2->core_number > 0)//running so let it be
+    return 1;
   return a_2->priority - b_2->priority;
 }
 
@@ -248,7 +252,7 @@ int scheduler_job_finished(int core_id, int job_number, int time)
     }
     i = i->next;
   }
-  
+
 	return -1;
 }
 
@@ -336,5 +340,11 @@ void scheduler_clean_up()
  */
 void scheduler_show_queue()
 {
-
+  node *i = job_queue.head;
+  while(i){
+    job_t *job = i->data;
+    printf("%d(%d) ", job->job_number, job->core_number);
+    i = i->next;
+  }
+  printf("\n");
 }

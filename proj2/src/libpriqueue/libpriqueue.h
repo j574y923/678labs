@@ -21,8 +21,6 @@ typedef struct node
   void *data;
 } node;
 
-typedef int (*func_ptr)(int, int);
-
 void   priqueue_init     (priqueue_t *q, int(*comparer)(const void *, const void *));
 
 int    priqueue_offer    (priqueue_t *q, void *ptr);
