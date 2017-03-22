@@ -125,7 +125,7 @@ void *priqueue_at(priqueue_t *q, int index)
       i = i->next;
       ++idx;
     }
-    return i->data;
+    return i;
   }
 	return NULL;
 }

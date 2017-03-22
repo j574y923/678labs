@@ -17,10 +17,11 @@
 typedef struct _job_t
 {
   int job_number; 
-  int time; 
+  int time_start; 
   int running_time; 
   int priority;
 
+  int time_last_run;//for preemptive
   int core_number;
 } job_t;
 
@@ -36,6 +37,8 @@ priqueue_t core_queue;
 // int *core_array;
 // int num_cores;
 
+int time_current;
+
 int fcfs  (const void* a, const void* b);
 int sjf   (const void* a, const void* b);
 int psjf  (const void* a, const void* b);
@@ -44,29 +47,36 @@ int ppri  (const void* a, const void* b);
 int rr    (const void* a, const void* b);
 
 int fcfs(const void* a, const void* b){
-  job_t* a_2 = (job_t*)a;
-  job_t* b_2 = (job_t*)b;
-  return a_2->time - b_2->time;
+  // job_t* a_2 = (job_t*)a;
+  // job_t* b_2 = (job_t*)b;
+  // return a_2->time_start - b_2->time_start;
+  return 1;
 }
 
 int sjf(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
-  if(b_2->core_number > 0)//running so let it be
+  if(b_2->core_number > -1)//running so let it be
     return 1;
-  return a_2->running_time - b_2->running_time;
+  else//not been started before, just compare running_time
+    return a_2->running_time - b_2->running_time;
 }
 
 int psjf(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
-  return a_2->running_time - b_2->running_time;
+  if(b_2->time_last_run > -1)//its been stopped before
+    return a_2->running_time - (b_2->running_time - (b_2->time_last_run - b_2->time_start));
+  else if(b_2->time_start > -1)//its been started
+    return a_2->running_time - (b_2->running_time - (time_current - b_2->time_start));
+  else//not been started before, just compare running_time
+    return a_2->running_time - b_2->running_time;
 }
 
 int pri(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
-  if(b_2->core_number > 0)//running so let it be
+  if(b_2->core_number > -1)//running so let it be
     return 1;
   return a_2->priority - b_2->priority;
 }
@@ -183,12 +193,15 @@ void scheduler_start_up(int cores, scheme_t scheme)
  */
 int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
+  time_current = time;
+
   job_t* job = malloc(sizeof(job_t));
   job->job_number = job_number;
-  job->time = time;
+  job->time_start = -1;//never run before
   job->running_time = running_time;
   job->priority = priority;
-  priqueue_offer(&job_queue, job);
+  job->time_last_run = -1;//never run before
+  int idx = priqueue_offer(&job_queue, job);
 
   //find the first available core index
   // int *p = core_array;
@@ -205,9 +218,59 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       core->available = 0;
       core->job = job;
       job->core_number = core->core_number;
+      job->time_start = time;
       return core->core_number;
     }
     i = i->next;
+  }
+
+  //FOR PREEMPTIVE ALGO: SOMEWHERE IN THIS FUNCTION NEED TO INSERT NEW JOB ON QUEUE, CHECK QUEUE --IF JOB IS IN FRONT OF ANY JOBS THAT AREN'T IDLE-- AND SEE IF THE JOB IS IDLE, SET THE LAST-MOST NON-IDLE JOB TO IDLE (the last job with core_number > 0)
+  //core not found, check if new job is in front of already-running jobs and need to kick some other job off a core
+  i = priqueue_at(&job_queue, idx);//get new job's idx
+  if(i->next){//in front of jobs (don't know if they are running or not yet)
+
+    job_t *job_2 = i->next->data;
+    if(job_2->core_number > -1){//if in front of already-running jobs
+      i = i->next;
+      node *i_prev = i;
+      while(i){
+        job_2 = i->data;
+        if(job_2->core_number < 0){//prev one is not idle
+          //look at prev job (which is not idle)
+          job_2 = i_prev->data;
+          //take prev job's core and put new job on it instead
+          job->core_number = job_2->core_number;
+          job_2->core_number = -1;
+          //mark time as the time last run for prev job
+          job->time_start = time;
+          job_2->time_last_run = time;
+          //get the core to put the new job on
+          i = priqueue_at(&core_queue, job->core_number);
+          core_t *core = i->data;
+          core->job = job;
+          return core->core_number;
+        }
+        i_prev = i;
+        i = i->next;
+      }
+      //reached the last idx and they're all running, so kick the last one off
+      job_2 = i_prev->data;
+      //take prev job's core and put new job on it instead
+      job->core_number = job_2->core_number;
+      job_2->core_number = -1;
+      //mark time as the time last run for prev job
+      job->time_start = time;
+      job_2->time_last_run = time;
+      //get the core to put the new job on
+      i = priqueue_at(&core_queue, job->core_number);
+      core_t *core = i->data;
+      core->job = job;
+      return core->core_number;
+    }
+    else{//not in front of any running jobs
+      job->core_number = -1;
+      return -1;
+    }
   }
 
   job->core_number = -1;
@@ -231,20 +294,23 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
  */
 int scheduler_job_finished(int core_id, int job_number, int time)
 {
+  time_current = time;
+
   // int *p = core_array;
   // *(p + core_id) = 1;
-  core_t *core = priqueue_at(&core_queue, core_id);
+  node *i = priqueue_at(&core_queue, core_id);
+  core_t *core = i->data;
   core->available = 1;
 
   priqueue_remove(&job_queue, core->job);
   core->job = NULL;
 
-  //find job that isn't running in job_queue
+  //find first job that isn't running in job_queue (i.e. idle)
   //put that job on core
-  node *i = job_queue.head;
+  i = job_queue.head;
   while(i){
     job_t *job = i->data;
-    if(job->core_number < 0){
+    if(job->core_number < 0){//if idle
       core->available = 0;
       core->job = job;
       job->core_number = core->core_number;
