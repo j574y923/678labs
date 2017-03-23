@@ -226,7 +226,7 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 
   //FOR PREEMPTIVE ALGO: SOMEWHERE IN THIS FUNCTION NEED TO INSERT NEW JOB ON QUEUE, CHECK QUEUE --IF JOB IS IN FRONT OF ANY JOBS THAT AREN'T IDLE-- AND SEE IF THE JOB IS IDLE, SET THE LAST-MOST NON-IDLE JOB TO IDLE (the last job with core_number > 0)
   //core not found, check if new job is in front of already-running jobs and need to kick some other job off a core
-  i = priqueue_at(&job_queue, idx);//get new job's idx
+  i = priqueue_node_at(&job_queue, idx);//get new job's idx
   if(i->next){//in front of jobs (don't know if they are running or not yet)
 
     job_t *job_2 = i->next->data;
@@ -245,8 +245,8 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
           job->time_start = time;
           job_2->time_last_run = time;
           //get the core to put the new job on
-          i = priqueue_at(&core_queue, job->core_number);
-          core_t *core = i->data;
+          //i = priqueue_at(&core_queue, job->core_number);
+          core_t *core = priqueue_at(&core_queue, job->core_number);//i->data;
           core->job = job;
           return core->core_number;
         }
@@ -262,8 +262,8 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       job->time_start = time;
       job_2->time_last_run = time;
       //get the core to put the new job on
-      i = priqueue_at(&core_queue, job->core_number);
-      core_t *core = i->data;
+      //i = priqueue_at(&core_queue, job->core_number);
+      core_t *core = priqueue_at(&core_queue, job->core_number);//i->data;
       core->job = job;
       return core->core_number;
     }
@@ -298,8 +298,8 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 
   // int *p = core_array;
   // *(p + core_id) = 1;
-  node *i = priqueue_at(&core_queue, core_id);
-  core_t *core = i->data;
+  //node *i = priqueue_at(&core_queue, core_id);
+  core_t *core = priqueue_at(&core_queue, core_id);//i->data;
   core->available = 1;
 
   priqueue_remove(&job_queue, core->job);
@@ -307,7 +307,7 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 
   //find first job that isn't running in job_queue (i.e. idle)
   //put that job on core
-  i = job_queue.head;
+  node *i = job_queue.head;
   while(i){
     job_t *job = i->data;
     if(job->core_number < 0){//if idle
