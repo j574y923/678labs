@@ -27,6 +27,7 @@ int    priqueue_offer    (priqueue_t *q, void *ptr);
 void * priqueue_peek     (priqueue_t *q);
 void * priqueue_poll     (priqueue_t *q);
 void * priqueue_at       (priqueue_t *q, int index);
+void * priqueue_node_at  (priqueue_t *q, int index);
 int    priqueue_remove   (priqueue_t *q, void *ptr);
 void * priqueue_remove_at(priqueue_t *q, int index);
 int    priqueue_size     (priqueue_t *q);

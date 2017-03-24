@@ -21,7 +21,8 @@ typedef struct _job_t
   int running_time; 
   int priority;
 
-  int time_last_run;//for preemptive
+  int time_stop;//for preemptive
+  int just_switched;
   int core_number;
 } job_t;
 
@@ -65,12 +66,27 @@ int sjf(const void* a, const void* b){
 int psjf(const void* a, const void* b){
   job_t* a_2 = (job_t*)a;
   job_t* b_2 = (job_t*)b;
-  if(b_2->time_last_run > -1)//its been stopped before
-    return a_2->running_time - (b_2->running_time - (b_2->time_last_run - b_2->time_start));
-  else if(b_2->time_start > -1)//its been started
-    return a_2->running_time - (b_2->running_time - (time_current - b_2->time_start));
-  else//not been started before, just compare running_time
+
+  //FIXED CODE??
+  //if(b_2->core_number > -1 && b_2->just_switched == 0)//just_switched is toggled to the core_number when a job_finishes and a core switches 
+  //  b_2->running_time--;
+  //else if(b_2->just_switched == 1)
+  //  just_switched = 0;
+  //return a_2->running_time - b_2->running_time;
+
+
+  // if(b_2->time_stop > -1)//it has been stopped before
+  //   return a_2->running_time - (b_2->running_time - (b_2->time_stop - b_2->time_start));
+  // else if(b_2->time_start > -1)//its been started
+  //   return a_2->running_time - (b_2->running_time - (time_current - b_2->time_start));
+  // else//not been started before, just compare running_time
+    // return a_2->running_time - b_2->running_time;
+
+  if(b_2->time_stop >= b_2->time_start)//it has been stopped before and the new running_time has been calculated
     return a_2->running_time - b_2->running_time;
+  if(b_2->time_start > -1)//its been started, its running?
+    return a_2->running_time - (b_2->running_time - (time_current - b_2->time_start));
+  return a_2->running_time - b_2->running_time;//not been started before, just compare running_time
 }
 
 int pri(const void* a, const void* b){
@@ -118,10 +134,10 @@ void scheduler_start_up(int cores, scheme_t scheme)
   // priqueue_offer(&queue, 420);
   // priqueue_offer(&queue, 69);
   // printf("TEST%dSIZE\n",(queue.size));
-  // printf("TEST%dAT2\n",priqueue_at(&queue,1));
+  // printf("TEST%dAT2\n",priqueue_node_at(&queue,1));
   // printf("TEST%dREM_ALL69\n",priqueue_remove(&queue,69));
   // printf("TEST%dSIZE\n",(queue.size));
-  // printf("TEST%dAT2\n",priqueue_at(&queue,0));
+  // printf("TEST%dAT2\n",priqueue_node_at(&queue,0));
   // printf("TEST%dSIZE\n",(queue.size));
   // printf("TEST%dPOLL\n",priqueue_poll(&queue));
   // printf("TEST%dSIZE\n",(queue.size));
@@ -200,7 +216,7 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
   job->time_start = -1;//never run before
   job->running_time = running_time;
   job->priority = priority;
-  job->time_last_run = -1;//never run before
+  job->time_stop = -1;//never run before
   int idx = priqueue_offer(&job_queue, job);
 
   //find the first available core index
@@ -236,19 +252,20 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       while(i){
         job_2 = i->data;
         if(job_2->core_number < 0){//prev one is not idle
-          //look at prev job (which is not idle)
-          job_2 = i_prev->data;
-          //take prev job's core and put new job on it instead
-          job->core_number = job_2->core_number;
-          job_2->core_number = -1;
-          //mark time as the time last run for prev job
-          job->time_start = time;
-          job_2->time_last_run = time;
-          //get the core to put the new job on
-          //i = priqueue_at(&core_queue, job->core_number);
-          core_t *core = priqueue_at(&core_queue, job->core_number);//i->data;
-          core->job = job;
-          return core->core_number;
+          // //look at prev job (which is not idle)
+          // job_2 = i_prev->data;
+          // //take prev job's core and put new job on it instead
+          // job->core_number = job_2->core_number;
+          // job_2->core_number = -1;
+          // //mark time as the time last run for prev job
+          // job->time_start = time;
+          // job_2->time_stop = time;
+          // //get the core to put the new job on
+          // i = priqueue_node_at(&core_queue, job->core_number);
+          // core_t *core = i->data;
+          // core->job = job;
+          // return core->core_number;
+          break;
         }
         i_prev = i;
         i = i->next;
@@ -260,10 +277,16 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       job_2->core_number = -1;
       //mark time as the time last run for prev job
       job->time_start = time;
-      job_2->time_last_run = time;
+      if(job_2->time_start > -1){//if its been run before
+        job_2->time_stop = time;
+        if(job_2->job_number == 5)
+          printf("DAFUQ???!!!\n\n\n\n\n");
+        //update the running time
+        job_2->running_time -= (job_2->time_stop - job_2->time_start);
+      }
       //get the core to put the new job on
-      //i = priqueue_at(&core_queue, job->core_number);
-      core_t *core = priqueue_at(&core_queue, job->core_number);//i->data;
+      i = priqueue_node_at(&core_queue, job->core_number);
+      core_t *core = i->data;
       core->job = job;
       return core->core_number;
     }
@@ -298,8 +321,8 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 
   // int *p = core_array;
   // *(p + core_id) = 1;
-  //node *i = priqueue_at(&core_queue, core_id);
-  core_t *core = priqueue_at(&core_queue, core_id);//i->data;
+  node *i = priqueue_node_at(&core_queue, core_id);
+  core_t *core = i->data;
   core->available = 1;
 
   priqueue_remove(&job_queue, core->job);
@@ -307,13 +330,14 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 
   //find first job that isn't running in job_queue (i.e. idle)
   //put that job on core
-  node *i = job_queue.head;
+  i = job_queue.head;
   while(i){
     job_t *job = i->data;
     if(job->core_number < 0){//if idle
       core->available = 0;
       core->job = job;
       job->core_number = core->core_number;
+      job->time_start = time;
       return job->job_number;
     }
     i = i->next;

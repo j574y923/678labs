@@ -130,15 +130,6 @@ void *priqueue_at(priqueue_t *q, int index)
 	return NULL;
 }
 
-/**
-  Returns the ***NODE*** element at the specified position in this list, or NULL if
-  the queue does not contain an index'th element.
- 
-  @param q a pointer to an instance of the priqueue_t data structure
-  @param index position of retrieved element
-  @return the index'th element in the queue
-  @return NULL if the queue does not contain the index'th element
- */
 void *priqueue_node_at(priqueue_t *q, int index)
 {
   if(index >= 0 && index < q->size){
