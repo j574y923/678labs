@@ -104,9 +104,10 @@ int ppri(const void* a, const void* b){
 }
 
 int rr(const void* a, const void* b){
-  job_t* a_2 = (job_t*)a;
-  job_t* b_2 = (job_t*)b;
-  return -1;
+  // job_t* a_2 = (job_t*)a;
+  // job_t* b_2 = (job_t*)b;
+  // return -1;
+  return 1;
 }
 
 
@@ -279,8 +280,6 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       job->time_start = time;
       if(job_2->time_start > -1){//if its been run before
         job_2->time_stop = time;
-        if(job_2->job_number == 5)
-          printf("DAFUQ???!!!\n\n\n\n\n");
         //update the running time
         job_2->running_time -= (job_2->time_stop - job_2->time_start);
       }
@@ -361,7 +360,29 @@ int scheduler_job_finished(int core_id, int job_number, int time)
   @return -1 if core should remain idle
  */
 int scheduler_quantum_expired(int core_id, int time)
-{
+{  
+  time_current = time;
+
+
+  core_t *core = priqueue_at(&core_queue, core_id);
+
+  //poll the front of the queue, move the job to the back of the queue, find the first idle job, switch core_number between first idle job and job at the back of the queue
+  job_t *job_expired = core->job;//priqueue_poll(&job_queue);
+  priqueue_remove(&job_queue, job_expired);
+  priqueue_offer(&job_queue, job_expired);
+  node *i = job_queue.head;
+  while(i){
+    job_t *job = i->data;
+    if(job->core_number < 0){
+      job->core_number = job_expired->core_number;
+      job_expired->core_number = -1;
+      core->job = job;
+      return job->job_number;
+    }
+    i = i->next;
+  }
+
+  return job_expired->job_number;
 	return -1;
 }
 
