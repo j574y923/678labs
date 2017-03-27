@@ -13,6 +13,7 @@ typedef struct _priqueue_t
   int size;
   struct node *head;
   comparer cmp;
+  int ptr_flag;
 } priqueue_t;
 
 typedef struct node

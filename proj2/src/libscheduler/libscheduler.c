@@ -185,6 +185,9 @@ void scheduler_start_up(int cores, scheme_t scheme)
       priqueue_init(&job_queue, rr);
       break;
   }
+
+  job_queue.ptr_flag = 1;
+  core_queue.ptr_flag = 1;
 }
 
 
@@ -325,6 +328,7 @@ int scheduler_job_finished(int core_id, int job_number, int time)
   core->available = 1;
 
   priqueue_remove(&job_queue, core->job);
+  free(core->job);
   core->job = NULL;
 
   //find first job that isn't running in job_queue (i.e. idle)
@@ -360,8 +364,8 @@ int scheduler_job_finished(int core_id, int job_number, int time)
   @return -1 if core should remain idle
  */
 int scheduler_quantum_expired(int core_id, int time)
-{  
-  time_current = time;
+{
+    time_current = time;
 
 
   core_t *core = priqueue_at(&core_queue, core_id);
@@ -383,7 +387,8 @@ int scheduler_quantum_expired(int core_id, int time)
   }
 
   return job_expired->job_number;
-	return -1;
+
+  return -1;
 }
 
 
@@ -434,7 +439,23 @@ float scheduler_average_response_time()
 */
 void scheduler_clean_up()
 {
+  // node *i = job_queue.head;
+  // while(i){
+  //   node *i_free = i;
+  //   i = i->next;
+  //   free(i_free->data);
+  //   free(i_free);
+  // }
 
+  // i = core_queue.head;
+  // while(i){
+  //   node *i_free = i;
+  //   i = i->next;
+  //   free(i_free->data);
+  //   free(i_free);
+  // }
+  priqueue_destroy(&job_queue);
+  priqueue_destroy(&core_queue);
 }
 
 
