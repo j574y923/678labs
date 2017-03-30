@@ -18,9 +18,11 @@ typedef struct _job_t
 {
   int job_number; 
   int time_start; 
+  int time_start_original;
   int running_time; 
+  int running_time_original;
   int priority;
-
+  int arrival_time;  
   int time_stop;//for preemptive
   int just_switched;
   int core_number;
@@ -35,10 +37,9 @@ typedef struct _core_t
 
 priqueue_t job_queue;
 priqueue_t core_queue;
-// int *core_array;
-// int num_cores;
 
-int time_current;
+int time_current, num_jobs;
+float response_time, turnaround_time, wait_time;
 
 int fcfs  (const void* a, const void* b);
 int sjf   (const void* a, const void* b);
@@ -126,17 +127,17 @@ int rr(const void* a, const void* b){
 void scheduler_start_up(int cores, scheme_t scheme)
 {
   // priqueue_init(&queue, NULL);
-  // priqueue_offer(&queue, 69);
-  // priqueue_offer(&queue, 69);
-  // priqueue_offer(&queue, 420);
-  // priqueue_offer(&queue, 69);
-  // priqueue_offer(&queue, 420);
-  // priqueue_offer(&queue, 69);
-  // priqueue_offer(&queue, 420);
-  // priqueue_offer(&queue, 69);
+  // priqueue_offer(&queue, 690);
+  // priqueue_offer(&queue, 690);
+  // priqueue_offer(&queue, 42);
+  // priqueue_offer(&queue, 690);
+  // priqueue_offer(&queue, 42);
+  // priqueue_offer(&queue, 690);
+  // priqueue_offer(&queue, 42);
+  // priqueue_offer(&queue, 690);
   // printf("TEST%dSIZE\n",(queue.size));
   // printf("TEST%dAT2\n",priqueue_node_at(&queue,1));
-  // printf("TEST%dREM_ALL69\n",priqueue_remove(&queue,69));
+  // printf("TEST%dREM_ALL69\n",priqueue_remove(&queue,690));
   // printf("TEST%dSIZE\n",(queue.size));
   // printf("TEST%dAT2\n",priqueue_node_at(&queue,0));
   // printf("TEST%dSIZE\n",(queue.size));
@@ -188,6 +189,7 @@ void scheduler_start_up(int cores, scheme_t scheme)
 
   job_queue.ptr_flag = 1;
   core_queue.ptr_flag = 1;
+  
 }
 
 
@@ -214,13 +216,16 @@ void scheduler_start_up(int cores, scheme_t scheme)
 int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
   time_current = time;
-
+  num_jobs++;
   job_t* job = malloc(sizeof(job_t));
   job->job_number = job_number;
   job->time_start = -1;//never run before
+  job->time_start_original = -1;
   job->running_time = running_time;
+  job->running_time_original = running_time;
   job->priority = priority;
   job->time_stop = -1;//never run before
+  job->arrival_time = time;
   int idx = priqueue_offer(&job_queue, job);
 
   //find the first available core index
@@ -238,6 +243,8 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       core->available = 0;
       core->job = job;
       job->core_number = core->core_number;
+      if(job->time_start == -1)
+          job->time_start_original = time;
       job->time_start = time;
       return core->core_number;
     }
@@ -280,11 +287,21 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
       job->core_number = job_2->core_number;
       job_2->core_number = -1;
       //mark time as the time last run for prev job
+      if(job->time_start == -1)
+          job->time_start_original = time;
       job->time_start = time;
       if(job_2->time_start > -1){//if its been run before
         job_2->time_stop = time;
         //update the running time
         job_2->running_time -= (job_2->time_stop - job_2->time_start);
+      
+        //IMPORTANT: if job didnt ever start, reset the original times
+        if(job_2->running_time == job_2->running_time_original){
+            job_2->time_start = -1;
+            job_2->time_start_original = -1;
+            job_2->time_stop = -1;
+        }
+            
       }
       //get the core to put the new job on
       i = priqueue_node_at(&core_queue, job->core_number);
@@ -323,11 +340,17 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 
   // int *p = core_array;
   // *(p + core_id) = 1;
+  
   node *i = priqueue_node_at(&core_queue, core_id);
   core_t *core = i->data;
   core->available = 1;
 
   priqueue_remove(&job_queue, core->job);
+  
+  response_time += (core->job->time_start_original - core->job->arrival_time);
+  turnaround_time += (time - core->job->arrival_time);
+  wait_time += (time - core->job->arrival_time - core->job->running_time_original);
+  
   free(core->job);
   core->job = NULL;
 
@@ -340,6 +363,8 @@ int scheduler_job_finished(int core_id, int job_number, int time)
       core->available = 0;
       core->job = job;
       job->core_number = core->core_number;
+      if(job->time_start == -1)
+          job->time_start_original = time;
       job->time_start = time;
       return job->job_number;
     }
@@ -365,7 +390,7 @@ int scheduler_job_finished(int core_id, int job_number, int time)
  */
 int scheduler_quantum_expired(int core_id, int time)
 {
-    time_current = time;
+  time_current = time;
 
 
   core_t *core = priqueue_at(&core_queue, core_id);
@@ -381,6 +406,9 @@ int scheduler_quantum_expired(int core_id, int time)
       job->core_number = job_expired->core_number;
       job_expired->core_number = -1;
       core->job = job;
+      if(job->time_start == -1)
+          job->time_start_original = time;
+      job->time_start = time;
       return job->job_number;
     }
     i = i->next;
@@ -388,7 +416,6 @@ int scheduler_quantum_expired(int core_id, int time)
 
   return job_expired->job_number;
 
-  return -1;
 }
 
 
@@ -401,7 +428,9 @@ int scheduler_quantum_expired(int core_id, int time)
  */
 float scheduler_average_waiting_time()
 {
-	return 0.0;
+	//return 0.0;
+    
+    return wait_time/num_jobs;
 }
 
 
@@ -414,7 +443,9 @@ float scheduler_average_waiting_time()
  */
 float scheduler_average_turnaround_time()
 {
-	return 0.0;
+	//return 0.0;
+    
+    return turnaround_time/num_jobs;
 }
 
 
@@ -427,7 +458,9 @@ float scheduler_average_turnaround_time()
  */
 float scheduler_average_response_time()
 {
-	return 0.0;
+	//return 0.0;
+    
+    return response_time/num_jobs;
 }
 
 
