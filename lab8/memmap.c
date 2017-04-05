@@ -90,7 +90,7 @@ int main (int argc, char *argv[])
   /* 
    * 6. copy the input file to the output file 
    */
-   for(int i = 0 ;i < statbuf.st_size; i++){
+   for(i = 0 ;i < statbuf.st_size; i++){
     *dst = *src;
     src++;
     dst++;
