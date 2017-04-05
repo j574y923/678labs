@@ -57,13 +57,12 @@ int main (int argc, char *argv[])
   /* 
    * 1. find size of input file 
    */
-  struct stat fileStat;
-  fstat(fdin, &fileStat);
+  fstat(fdin, &statbuf);
 
   /* 
    * 2. go to the location corresponding to the last byte 
    */
-  if(lseek(fdout,fileStat.st_size - 1,SEEK_SET) < 0) {
+  if(lseek(fdout,statbuf.st_size - 1,SEEK_SET) < 0) {
     sprintf(buf, "can't go to last byte in %s", argv[2]);
     perror(buf);
     exit(errno);
@@ -81,17 +80,17 @@ int main (int argc, char *argv[])
   /* 
    * 4. mmap the input file 
    */
-  src = mmap(NULL, fileStat.st_size, PROT_READ, MAP_SHARED, fdin, 0);
+  src = mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fdin, 0);
 
   /* 
    * 5. mmap the output file 
    */
-  dst = mmap(NULL, fileStat.st_size, PROT_WRITE, MAP_SHARED, fdout, 0);
+  dst = mmap(NULL, statbuf.st_size, PROT_WRITE, MAP_SHARED, fdout, 0);
 
   /* 
    * 6. copy the input file to the output file 
    */
-   for(int i = 0 ;i < fileStat.st_size; i++){
+   for(int i = 0 ;i < statbuf.st_size; i++){
     *dst = *src;
     src++;
     dst++;
